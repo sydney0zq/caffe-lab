@@ -75,7 +75,7 @@ class CaffeSolver:
         # looks:
         self.sp['display'] = '100'
         self.sp['snapshot'] = '2500'
-        self.sp['snapshot_prefix'] = '"snapshot"'  # string within a string!
+        self.sp['snapshot_prefix'] = '"./snapshot/"'  # string within a string!
 
         # learning rate policy
         self.sp['lr_policy'] = '"multistep"'

@@ -81,16 +81,16 @@ def ResNet(split):
             projection_stride = 2
         else:
             projection_stride = 1
-            result = ResNet_block(split, result, nout = 32, ks = 3, stride = 1,
-                                    projection_stride = projection_stride, pad = 1)
+        result = ResNet_block(split, result, nout = 32, ks = 3, stride = 1,
+                                projection_stride = projection_stride, pad = 1)
     # Conv4_X
     for ii in range(repeat):
         if ii == 0:
             projection_stride = 2
         else:
             projection_stride = 1
-            result = ResNet_block(split, result, nout = 64, ks = 3, stride = 1,
-                                    projection_stride = projection_stride, pad = 1)
+        result = ResNet_block(split, result, nout = 64, ks = 3, stride = 1,
+                            projection_stride = projection_stride, pad = 1)
     pool = L.Pooling(result, pool = P.Pooling.AVE, global_pooling = True)
     IP = L.InnerProduct(pool, num_output = 10, 
                             weight_filler = dict(type='xavier'),
@@ -143,7 +143,7 @@ def ResNet_block(split, bottom, nout, ks, stride, projection_stride, pad):
         # Else pass 1x1 and stride = 2 map
         # conv_BN_scale_relu(split, bottom, nout, ks, stride, pad):
         scale0, relu0 = conv_BN_scale_relu(split, bottom, nout, 1, projection_stride, 0)
-    scale1, relu1 = conv_BN_scale_relu(split, bottom, nout, ks, stride, pad)
+    scale1, relu1 = conv_BN_scale_relu(split, bottom, nout, ks, projection_stride, pad) #NOTE: big bug, pay attention
     scale2, relu2 = conv_BN_scale_relu(split, relu1,  nout, ks, stride, pad)
 
     wise = L.Eltwise(scale2, scale0, operation = P.Eltwise.SUM)
