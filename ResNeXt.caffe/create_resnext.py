@@ -4,10 +4,10 @@
 """
 Mail: theodoruszq@gmail.com, HUST
 Version: 0.0
-Date: 2017-08-15 
+Date: 2017-08-16
 
 Description: 
-    Implementaion of ResNet.
+    Implementaion of ResNeXt.
     [] The origin torch version: https://github.com/facebookresearch/ResNeXt
     [] The origin torch model  : https://github.com/facebookresearch/ResNeXt/blob/master/models/resnext.lua
 """
@@ -18,50 +18,29 @@ import caffe
 from caffe import layers as L, params as P, to_proto
 from caffe.proto import caffe_pb2
 
-import tools        # Attention this locates in current directory
-
-
 PATH_PREFIX = "./"
 
-TRAIN_NET_PATH = PATH_PREFIX + "resnet_train.protobuf"
-TEST_NET_PATH  = PATH_PREFIX + "resnet_test.protobuf"
-SOLVER_CONFIG_PATH = PATH_PREFIX + "resnet_solver.protobuf"
+TRAIN_NET_PATH = PATH_PREFIX + "resnext_train.protobuf"
+TEST_NET_PATH  = PATH_PREFIX + "resnext_test.protobuf"
 
-
-
-def ResNet(split):
+# ResNeXt 50(32x4d)
+def ResNext(split, batch_size, ):
     DATAPATH_PREFIX = "../CIFAR10/"
     TRAIN_FILE = DATAPATH_PREFIX + "cifar10_train_lmdb"
     TEST_FILE  = DATAPATH_PREFIX + "cifar10_test_lmdb"
     MEAN_FILE  = DATAPATH_PREFIX + "mean.binaryproto"
 
-    """
-    :source: the dataset path
-    :backend: the format of dataset
-    :ntop: how many output, n.data and n.labels
-    :mirror: flipped or not
-    
-    Notice that you can check source definition in 
-    `$CAFFE_ROOT/src/caffe/proto/caffe.proto` : `message DataParameter{}`
-
-    Some details:
-        mean_file: subtract the data mean to converge faster
-        crop_size: crop to 3x28x28 from 3x32x32, but the paper intends to pad
-            images to 3x40x40 with 0, and the crop them which may be slow
-    """
     if split == "train":
         data, labels = L.Data(source = TRAIN_FILE, backend = P.Data.LMDB,
-                              batch_size = 128, ntop = 2,
+                              batch_size = batch_size, ntop = 2,
                               transform_param = dict(mean_file = MEAN_FILE, 
                                                      crop_size = 28, 
                                                      mirror = True))
     elif split == "test":
         data, labels = L.Data(source = TEST_FILE, backend = P.Data.LMDB,
-                              batch_size = 128, ntop = 2,
+                              batch_size = batch_size, ntop = 2,
                               transform_param = dict(mean_file = MEAN_FILE,
                                                      crop_size = 28))
-    # Every convX_X has three residual blocks, Conv2_X to Conv4_X filter number {16, 32, 64}
-    # As a result of feature size {32, 16, 8}, actually {28, 14, 7} as cropping
     # When projection_stride == 1, the in and out dim same
     # When projection_stride == 2, the in and out dim diff, need 1x1, stride = 2 to project
     # O = (W - Kernel_Size + 2Padding) / Stride + 1
@@ -152,6 +131,21 @@ def ResNet_block(split, bottom, nout, ks, stride, projection_stride, pad):
     return wise_relu
     
 
+def ResNext_bottleneck_B(split, bottom, nout, ks, stride, projection_stride, pad):
+    # 1 means identity
+    if projection_stride == 1:
+        scale0 = bottom
+    else:
+        # Else pass 1x1 and stride = 2 map
+        # conv_BN_scale_relu(split, bottom, nout, ks, stride, pad):
+        scale0, relu0 = conv_BN_scale_relu(split, bottom, nout, 1, projection_stride, 0)
+    scale1, relu1 = conv_BN_scale_relu(split, bottom, nout, ks, projection_stride, pad) #NOTE: big bug, pay attention
+    scale2, relu2 = conv_BN_scale_relu(split, relu1,  nout, ks, stride, pad)
+
+    wise = L.Eltwise(scale2, scale0, operation = P.Eltwise.SUM)
+    wise_relu = L.ReLU(wise, in_place=True)
+
+    return wise_relu
 
 def make_net():
     # Write model to train.protobuf
@@ -172,5 +166,9 @@ def ResNext_Bottleneck_B(batch_size, n, stride):
 
 
 if __name__ == "__main__":
+    batch_size = 128
+    cardinality = 32
+    baseWidth = 
+
     make_net()
 

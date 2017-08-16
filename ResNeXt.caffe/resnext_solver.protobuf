@@ -3,8 +3,8 @@
 #test_initialization: false
 
 
-test_net: "./resnet_test.protobuf"
-train_net: "./resnet_train.protobuf"
+test_net: "./resnext_test.protobuf"
+train_net: "./resnext_train.protobuf"
 # This parameter indicates how many test iterations should occur per test_interval.
 test_iter: 100
 test_interval: 500
