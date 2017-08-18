@@ -8,26 +8,25 @@ train_net: "./resnext_train.protobuf"
 # This parameter indicates how many test iterations should occur per test_interval.
 test_iter: 100
 test_interval: 500
-max_iter: 50000
+max_iter: 100000
 
 # Multistep
-base_lr: 0.1
+base_lr: 0.025
 momentum: 0.9
-weight_decay: 0.0001
+weight_decay: 0.0005
 lr_policy: "multistep"
 # The learning rate policy
-gamma: 0.001
-stepvalue: 5000
-stepvalue: 7000
-stepvalue: 8000
-stepvalue: 9000
-stepvalue: 9500
+gamma: 0.9
+stepvalue: 10000
+stepvalue: 30000
+stepvalue: 50000
+stepvalue: 80000
+stepvalue: 95000
 
 
 
 
-
-display: 100
+display: 50
 snapshot: 2500
 snapshot_prefix: "./snapshot/"
 solver_mode: GPU
