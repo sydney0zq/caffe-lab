@@ -11,39 +11,35 @@ from opt import opts
 from conv import conv_BN_scale_relu 
 
 PATH_PREFIX = "./"
-TRAIN_NET_PATH = PATH_PREFIX + "resnext_train.protobuf"
-TEST_NET_PATH  = PATH_PREFIX + "resnext_test.protobuf"
+TRAIN_NET_PATH = PATH_PREFIX + "resnext29_train.protobuf"
+TEST_NET_PATH  = PATH_PREFIX + "resnext29_test.protobuf"
+
+DATAPATH_PREFIX = "../../DATASETS/CIFAR10/"
+TRAIN_FILE = DATAPATH_PREFIX + "cifar10_train_lmdb"
+TEST_FILE  = DATAPATH_PREFIX + "cifar10_test_lmdb"
+MEAN_FILE  = DATAPATH_PREFIX + "mean.binaryproto"
 
 def ResNext(split, n):
-    DATAPATH_PREFIX = "../CIFAR10/"
-    TRAIN_FILE = DATAPATH_PREFIX + "cifar10_train_lmdb"
-    TEST_FILE  = DATAPATH_PREFIX + "cifar10_test_lmdb"
-    MEAN_FILE  = DATAPATH_PREFIX + "mean.binaryproto"
-
     if split == "train":
-        data, labels = L.Data(source = TRAIN_FILE, backend = P.Data.LMDB,
-                              batch_size = opt.batch_size, ntop = 2,
-                              transform_param = dict(mean_file = MEAN_FILE, 
-                                                     crop_size = 28, mirror = True))
+        data, labels = L.Data(source = TRAIN_FILE, backend = P.Data.LMDB, batch_size = opt.batch_size, ntop = 2,
+                              transform_param = dict(mean_file = MEAN_FILE, crop_size = 28, mirror = True))
     elif split == "test":
-        data, labels = L.Data(source = TEST_FILE, backend = P.Data.LMDB,
-                              batch_size = opt.batch_size, ntop = 2,
-                              transform_param = dict(mean_file = MEAN_FILE,
-                                                     crop_size = 28))
+        data, labels = L.Data(source = TEST_FILE, backend = P.Data.LMDB, batch_size = opt.batch_size, ntop = 2,
+                              transform_param = dict(mean_file = MEAN_FILE, crop_size = 28))
     scale, result = conv_BN_scale_relu(split, data, nout = 64, ks = 3, stride = 1, pad = 1) #NOT CHANGE dim_out 64, 64x{28x28}
 
     features = 64
-    t = expand_dim_n_bottleneck_B(split, result, features, features, 1)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)
+    t = expand_dim_n_bottleneck_B(split, result, features, features, 1) #64->256, 256x{28x28}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)   #256->256, 256x{28x28}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)   #256->256, 256x{28x28}
     features = 128
-    t = expand_dim_n_bottleneck_B(split, t, features*2, features, 2)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features,  1)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)
+    t = expand_dim_n_bottleneck_B(split, t, features*2, features, 2) #256->512, 512x{14x14}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features,  1)  #512->512, 512x{14x14}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)   #512->512, 512x{14x14}
     features = 256
-    t = expand_dim_n_bottleneck_B(split, t, features*2, features, 2)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features,  1)
-    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1)
+    t = expand_dim_n_bottleneck_B(split, t, features*2, features, 2)#512->1024, 1024x{7x7}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features,  1)#1024->1024, 1024x{7x7}
+    t = same_dim_n_bottlneck_B(split, t, features*4, features, 1) #1024->1024, 1024x{7x7}
 
     #pool = L.Pooling(result, pool = P.Pooling.AVE, global_pooling = True, kernel_size = 8, stride = 1)
     pool = L.Pooling(t, pool = P.Pooling.AVE, global_pooling = True)
@@ -66,27 +62,27 @@ def n_bottleneck_layer_naive(split, bottom, features, stride):
 
 # The input dim and output dim must be the same
 def same_dim_n_bottlneck_B(split, bottom, dim_in, features, stride):
-    dim_branch_out = int(math.floor(features * (opt.baseWidth / 64.0)))
+    dim_branch_out = int(math.floor(features * (opt.baseWidth / 64)))
     dim_out = dim_in
     branch_container=list()
     for i in range(opt.cardinalty):
         scale1, relu1 = conv_BN_scale_relu(split, bottom, dim_branch_out, 1, 1, 0);
         scale2, relu2 = conv_BN_scale_relu(split, relu1,  dim_branch_out, 3, stride, 1)
         branch_container.append(relu2)
-    comb = L.Concat(*branch_container)
+    comb = L.Concat(*branch_container, in_place=True)
     scale_comb, relu_comb = conv_BN_scale_relu(split, comb, dim_out, 1, 1, 0)
     scale_i, relu_i = conv_BN_scale_relu(split, bottom, dim_out, 1, stride, 0)
     return L.Eltwise(relu_comb, relu_i, operation = P.Eltwise.SUM)
 
 def expand_dim_n_bottleneck_B(split, bottom, dim_in, features, stride):
-    dim_branch_out = int(math.floor(features * (opt.baseWidth / 64.0)))
+    dim_branch_out = int(math.floor(features * (opt.baseWidth / 64)))
     dim_out = dim_in * 4
     branch_container=list()
     for i in range(opt.cardinalty):
         scale1, relu1 = conv_BN_scale_relu(split, bottom, dim_branch_out, 1, 1, 0);
         scale2, relu2 = conv_BN_scale_relu(split, relu1,  dim_branch_out, 3, stride, 1)
         branch_container.append(relu2)
-    comb = L.Concat(*branch_container)
+    comb = L.Concat(*branch_container, in_place=True)
     scale_comb, relu_comb = conv_BN_scale_relu(split, comb, dim_out, 1, 1, 0)
     scale_i, relu_i = conv_BN_scale_relu(split, bottom, dim_out, 1, stride, 0)
     return L.Eltwise(relu_comb, relu_i, operation = P.Eltwise.SUM)

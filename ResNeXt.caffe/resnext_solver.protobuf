@@ -1,6 +1,6 @@
 #average_loss: 25
 #iter_size: 1
-#test_initialization: false
+test_initialization: false
 
 
 test_net: "./resnext_test.protobuf"

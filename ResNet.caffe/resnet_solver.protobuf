@@ -7,21 +7,18 @@ test_net: "./resnet_test.protobuf"
 train_net: "./resnet_train.protobuf"
 # This parameter indicates how many test iterations should occur per test_interval.
 test_iter: 100
-test_interval: 500
-max_iter: 50000
+test_interval: 1000
+max_iter: 64000
 
 # Multistep
 base_lr: 0.1
 momentum: 0.9
-weight_decay: 0.0001
+weight_decay: 0.0005
 lr_policy: "multistep"
 # The learning rate policy
-gamma: 0.001
-stepvalue: 5000
-stepvalue: 7000
-stepvalue: 8000
-stepvalue: 9000
-stepvalue: 9500
+gamma: 0.1
+stepvalue: 32000
+stepvalue: 48000
 
 
 

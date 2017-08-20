@@ -2,3 +2,8 @@
 *.out
 __pycache__
 *.pyc
+*.log
+snapshot
+*.png
+*.protobuf
+
